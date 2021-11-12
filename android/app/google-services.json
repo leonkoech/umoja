@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1076715005448",
+    "project_id": "umoja-96751",
+    "storage_bucket": "umoja-96751.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1076715005448:android:1125ba10ec12da642393bd",
+        "android_client_info": {
+          "package_name": "com.example.umoja"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1076715005448-jje3chv3p7q3jsr1ebd1e7f26pbnan4d.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBf6x8C__5hx888okqgQzfbEE4B1nfgyKA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1076715005448-jje3chv3p7q3jsr1ebd1e7f26pbnan4d.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
