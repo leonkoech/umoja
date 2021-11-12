@@ -5,64 +5,112 @@ import 'package:flutter_datetime_picker/flutter_datetime_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:umoja/widgets.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
   // This widget is the root of your application.
+
   @override
   Widget build(BuildContext context) {
+    Future<FirebaseApp> _initialization = Firebase.initializeApp();
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Umoja',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: LandngPage(),
+      home: LandingPage(initialization: _initialization),
     );
   }
 }
 
-class LandngPage extends StatefulWidget {
-  const LandngPage({Key? key}) : super(key: key);
+class LandingPage extends StatefulWidget {
+  final initialization;
+  const LandingPage({Key? key, @required this.initialization})
+      : super(key: key);
 
   @override
-  _LandngPageState createState() => _LandngPageState();
+  _LandingPageState createState() => _LandingPageState();
 }
 
-class _LandngPageState extends State<LandngPage> {
+class _LandingPageState extends State<LandingPage> {
   // check if user is logged in
   // later
+
+  // FirebaseAuth auth = FirebaseAuth.instance;
+  // bool loading = true;
+
+  // isLoggedIn() {
+  //   FirebaseAuth.instance.authStateChanges().listen((User? user) {
+  //     if (user == null) {
+  //       setState(() {
+  //         loading = false;
+  //         print('user is not signed in');
+  //       });
+  //     } else {
+  //       loading = false;
+  //       print('User is signed in!');
+  //     }
+  //   });
+  // }
+  // write a function to find type of user and log them in acordingly
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: appBar("umoja", context, 0),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            GestureDetector(
-                onTap: () {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (context) => Login()));
-                },
-                child: button('Login', Colors.white, Colors.blue, context)),
-            SizedBox(height: 10),
-            GestureDetector(
-                onTap: () {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (context) => SignUpSelect()));
-                },
-                child: button('Sign Up', Colors.black, Colors.white, context))
-          ],
-        ),
-      ),
+    return FutureBuilder(
+      // Initialize FlutterFire:
+      future: widget.initialization,
+      builder: (context, snapshot) {
+        // Check for errors
+        if (snapshot.hasError) {
+          return showToast("Something went wrong");
+        }
+
+        // Once complete, show your application
+        if (snapshot.connectionState == ConnectionState.done) {
+          return Scaffold(
+            appBar: appBar("umoja", context, 0),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  GestureDetector(
+                      onTap: () {
+                        Navigator.push(context,
+                            MaterialPageRoute(builder: (context) => Login()));
+                      },
+                      child:
+                          button('Login', Colors.white, Colors.blue, context)),
+                  SizedBox(height: 10),
+                  GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => SignUpSelect()));
+                      },
+                      child: button(
+                          'Sign Up', Colors.black, Colors.white, context))
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Otherwise, show something whilst waiting for initialization to complete
+        return loader();
+      },
     );
   }
 }
@@ -75,6 +123,23 @@ class Login extends StatefulWidget {
 }
 
 class _LoginState extends State<Login> {
+  FirebaseAuth auth = FirebaseAuth.instance;
+
+  TextEditingController email = new TextEditingController();
+  TextEditingController password = new TextEditingController();
+
+  logIn() {
+    auth
+        .signInWithEmailAndPassword(email: email.text, password: password.text)
+        .then((value) {
+      // log in user
+      Navigator.push(context,
+          MaterialPageRoute(builder: (context) => TherapistHomePage()));
+    }).onError((error, stackTrace) {
+      showToast(error.toString());
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -91,6 +156,7 @@ class _LoginState extends State<Login> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                 child: TextFormField(
+                  controller: email,
                   decoration: const InputDecoration(
                     border: UnderlineInputBorder(),
                     labelText: 'Enter your email',
@@ -101,13 +167,17 @@ class _LoginState extends State<Login> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                 child: TextFormField(
+                  controller: password,
+                  obscureText: true,
                   decoration: const InputDecoration(
                     border: UnderlineInputBorder(),
                     labelText: 'Enter your password',
                   ),
                 ),
               ),
-              button("Log In", Colors.white, Colors.blue, context)
+              GestureDetector(
+                  onTap: logIn,
+                  child: button("Log In", Colors.white, Colors.blue, context))
             ],
           ),
         ),
@@ -217,6 +287,135 @@ class _TherapistSignUpState extends State<TherapistSignUp> {
   // if yes chack status
   // if incomplete or under review
   // if incomplwtw profileStatus=
+  FirebaseAuth auth = FirebaseAuth.instance;
+  FirebaseFirestore store = FirebaseFirestore.instance;
+  // sign up the user
+  String driversId = '', selfId = '';
+  bool loading = false;
+  TextEditingController names = new TextEditingController();
+  TextEditingController phoneNumbers = new TextEditingController();
+  TextEditingController emailAddress = new TextEditingController();
+  TextEditingController password = new TextEditingController();
+  TextEditingController confirmPassword = new TextEditingController();
+  TextEditingController state = new TextEditingController();
+  TextEditingController city = new TextEditingController();
+  TextEditingController licenseNo = new TextEditingController();
+  TextEditingController licenseType = new TextEditingController();
+  TextEditingController dateofIssue = new TextEditingController();
+  TextEditingController expirationDate = new TextEditingController();
+  TextEditingController professionalBio = new TextEditingController();
+
+  bool checkIfPasswordsMatch() {
+    bool mybool = true;
+    if (password.text != confirmPassword.text) {
+      print(password.value);
+      print(password.text);
+      mybool = false;
+      showToast("Passwords do not match");
+    }
+    return mybool;
+  }
+
+  createUser() {
+    setState(() {
+      loading = true;
+    });
+    if (checkIfPasswordsMatch()) {
+      auth
+          .createUserWithEmailAndPassword(
+              email: emailAddress.text, password: password.text)
+          .then((value) {
+        nextStep();
+        setState(() {
+          loading = false;
+        });
+      }).onError((error, stackTrace) {
+        setState(() {
+          profileStatus = 0;
+          loading = false;
+        });
+        showToast(error.toString());
+      });
+    }
+  }
+
+  createTherapistProfile(name, selfId, driversId, therapistId, phone, email,
+      status, license, accType) {
+    CollectionReference users = FirebaseFirestore.instance.collection('users');
+    return users.add({
+      'name': name, // John Doe
+      'selfId': selfId, // Stokes and Sons
+      'driversId': driversId,
+      'therapistId': therapistId,
+      'phone': phone,
+      'email': email,
+      'status': status,
+      'licenseNo': license,
+      'accType': accType,
+      'professionalBio': professionalBio.text,
+    }).then((value) {
+      createLicenseInformation(therapistId, licenseNo.text, state.text,
+          city.text, licenseType.text, expirationDate.text, dateofIssue.text);
+    }).catchError((error) => showToast("Failed to add user: $error"));
+  }
+
+  createLicenseInformation(therapistId, licenseNo, state, city, licenseType,
+      expirationDate, dateofIssue) {
+    CollectionReference users =
+        FirebaseFirestore.instance.collection('licenses');
+    return users.add({
+      'therapistId': therapistId, // John Doe
+      'licenseNo': licenseNo, // Stokes and Sons
+      'state': state,
+      'city': city,
+      'licenseType': licenseType,
+      'expirationDate': expirationDate,
+      'dateofIssue': dateofIssue,
+    }).then((value) {
+      createTherapistWallet(therapistId, 0, 0, 0, 0, 0);
+    }).catchError((error) => showToast("Failed to add Lincese: $error"));
+  }
+
+  createTherapistWallet(therapistId, patients, monthlySponsors, oTsponsors,
+      hoursDone, pointsEarned) {
+    CollectionReference users =
+        FirebaseFirestore.instance.collection('therapistWallets');
+    return users.add({
+      'therapistId': therapistId, // John Doe
+      'patients': patients, // Stokes and Sons
+      'monthlySponsors': monthlySponsors,
+      'oTSponsors': oTsponsors,
+      'hours': hoursDone,
+      'points': pointsEarned,
+    }).then((value) {
+      showToast("Account Created Successfully");
+      setState(() {
+        nextStep();
+        loading = false;
+      });
+    }).catchError((error) => showToast("Failed to add Lincese: $error"));
+  }
+
+  createTherapist() {
+    setState(() {
+      loading = true;
+    });
+    final User? user = auth.currentUser;
+    final therapistId = user!.uid;
+    // fields selfId, driversId,therapistId,phone,email,name,status,licenseNo, accType
+    createTherapistProfile(names.text, selfId, driversId, therapistId,
+        phoneNumbers.text, emailAddress.text, 2, licenseNo.text, 'Therapist');
+    // fields licenseNo,state,City,licenseType,expirationDate, DateofIssue
+    // createLicenseInformation(therapistId, licenseNo.text, state.text, city.text,
+    //     licenseType.text, expirationDate.text, dateofIssue.text);
+    // fields therapistId, patients, monthlySponsors, OTsponsors, hoursDone, pointsEarned
+    // createTherapistWallet(therapistId, 0, 0, 0, 0, 0);
+  }
+
+
+  firebase_storage.FirebaseStorage storage =  firebase_storage.FirebaseStorage.instance;
+  submitSelfId() {}
+
   int profileStatus = 0;
 
   // // Pick an image
@@ -296,123 +495,98 @@ class _TherapistSignUpState extends State<TherapistSignUp> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: appBar("Therapist", context, 1),
-        body: profileStatus == 0
-            ? Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: ListView(
-                  children: [
-                    Text("Personal Info"),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 16),
-                      child: TextFormField(
-                        decoration: const InputDecoration(
-                          border: UnderlineInputBorder(),
-                          labelText: 'First and Last Name',
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 16),
-                      child: TextFormField(
-                        decoration: const InputDecoration(
-                          border: UnderlineInputBorder(),
-                          labelText: 'Phone Number',
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 16),
-                      child: TextFormField(
-                        decoration: const InputDecoration(
-                          border: UnderlineInputBorder(),
-                          labelText: 'Email Address',
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 16),
-                      child: TextFormField(
-                        decoration: const InputDecoration(
-                          border: UnderlineInputBorder(),
-                          labelText: 'Password',
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 16),
-                      child: TextFormField(
-                        decoration: const InputDecoration(
-                          border: UnderlineInputBorder(),
-                          labelText: 'Confirm Password',
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                        onTap: nextStep,
-                        child:
-                            button("Next", Colors.white, Colors.black, context))
-                  ],
-                ),
-              )
-            : profileStatus == 1
+        body: loading == true
+            ? whiteloader()
+            : profileStatus == 0
                 ? Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: ListView(children: [
-                      Text("Self Identification"),
-                      Container(
-                          height: MediaQuery.of(context).size.height * 0.5,
-                          child: _selfIdPicture != null
-                              ? Image.file(r.File(_selfIdPicture!.path))
-                              : SizedBox()),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: GestureDetector(
-                          onTap: () {
-                            _takePicture(1);
-                          },
-                          child: button(
-                              _selfIdPicture != null
-                                  ? "Retake Self Id Picture"
-                                  : "Take Self Id Picture",
-                              Colors.white,
-                              Colors.black,
-                              context),
+                    child: ListView(
+                      children: [
+                        Text("Personal Info"),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 16),
+                          child: TextFormField(
+                            controller: names,
+                            decoration: const InputDecoration(
+                              border: UnderlineInputBorder(),
+                              labelText: 'First and Last Name',
+                            ),
+                          ),
                         ),
-                      ),
-                      SizedBox(
-                        height: 10,
-                      ),
-                      GestureDetector(
-                          onTap: nextStep,
-                          child: button(
-                              "Next", Colors.white, Colors.black, context))
-                    ]),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 16),
+                          child: TextFormField(
+                            controller: phoneNumbers,
+                            decoration: const InputDecoration(
+                              border: UnderlineInputBorder(),
+                              labelText: 'Phone Number',
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 16),
+                          child: TextFormField(
+                            controller: emailAddress,
+                            decoration: const InputDecoration(
+                              border: UnderlineInputBorder(),
+                              labelText: 'Email Address',
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 16),
+                          child: TextFormField(
+                            controller: password,
+                            obscureText: true,
+                            decoration: const InputDecoration(
+                              border: UnderlineInputBorder(),
+                              labelText: 'Password',
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 16),
+                          child: TextFormField(
+                            controller: confirmPassword,
+                            obscureText: true,
+                            decoration: const InputDecoration(
+                              border: UnderlineInputBorder(),
+                              labelText: 'Confirm Password',
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                            onTap: createUser,
+                            child: button(
+                                "Next", Colors.white, Colors.black, context))
+                      ],
+                    ),
                   )
-                : profileStatus == 2
+                : profileStatus == 1
                     ? Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: ListView(children: [
                           Text("Self Identification"),
                           Container(
                               height: MediaQuery.of(context).size.height * 0.5,
-                              child: _driversLicense != null
-                                  ? Image.file(r.File(_driversLicense!.path))
+                              child: _selfIdPicture != null
+                                  ? Image.file(r.File(_selfIdPicture!.path))
                                   : SizedBox()),
                           Padding(
                             padding: const EdgeInsets.only(top: 8.0),
                             child: GestureDetector(
                               onTap: () {
-                                _takePicture(2);
+                                _takePicture(1);
                               },
                               child: button(
                                   _selfIdPicture != null
-                                      ? "Retake Driver's License Picture"
-                                      : "Take Driver's License Picture",
+                                      ? "Retake Self Id Picture"
+                                      : "Take Self Id Picture",
                                   Colors.white,
                                   Colors.black,
                                   context),
@@ -427,125 +601,171 @@ class _TherapistSignUpState extends State<TherapistSignUp> {
                                   "Next", Colors.white, Colors.black, context))
                         ]),
                       )
-                    : profileStatus == 3
+                    : profileStatus == 2
                         ? Padding(
                             padding: const EdgeInsets.all(8.0),
-                            child: ListView(
-                              children: [
-                                Text("License Information"),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 16),
-                                  child: TextFormField(
-                                    decoration: const InputDecoration(
-                                      border: UnderlineInputBorder(),
-                                      labelText: 'State you Practice',
-                                    ),
-                                  ),
+                            child: ListView(children: [
+                              Text("Self Identification"),
+                              Container(
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.5,
+                                  child: _driversLicense != null
+                                      ? Image.file(
+                                          r.File(_driversLicense!.path))
+                                      : SizedBox()),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _takePicture(2);
+                                  },
+                                  child: button(
+                                      _selfIdPicture != null
+                                          ? "Retake Driver's License Picture"
+                                          : "Take Driver's License Picture",
+                                      Colors.white,
+                                      Colors.black,
+                                      context),
                                 ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 16),
-                                  child: TextFormField(
-                                    decoration: const InputDecoration(
-                                      border: UnderlineInputBorder(),
-                                      labelText: 'License Number',
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 16),
-                                  child: TextFormField(
-                                    decoration: const InputDecoration(
-                                      border: UnderlineInputBorder(),
-                                      labelText: 'License Type',
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 16),
-                                  child: TextFormField(
-                                    decoration: const InputDecoration(
-                                      border: UnderlineInputBorder(),
-                                      labelText: 'Date of Issue',
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 16),
-                                  child: TextFormField(
-                                    decoration: const InputDecoration(
-                                      border: UnderlineInputBorder(),
-                                      labelText: 'Date of Expiration',
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 16),
-                                  child: TextFormField(
-                                    decoration: const InputDecoration(
-                                      border: UnderlineInputBorder(),
-                                      labelText: 'City or Zip Code',
-                                    ),
-                                  ),
-                                ),
-                                GestureDetector(
-                                    onTap: nextStep,
-                                    child: button("Next", Colors.white,
-                                        Colors.black, context))
-                              ],
-                            ),
+                              ),
+                              SizedBox(
+                                height: 10,
+                              ),
+                              GestureDetector(
+                                  onTap: nextStep,
+                                  child: button("Next", Colors.white,
+                                      Colors.black, context))
+                            ]),
                           )
-                        : profileStatus == 4
+                        : profileStatus == 3
                             ? Padding(
                                 padding: const EdgeInsets.all(8.0),
                                 child: ListView(
                                   children: [
-                                    Text("Profesional Bio"),
+                                    Text("License Information"),
                                     Padding(
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 8, vertical: 16),
                                       child: TextFormField(
-                                        // expands: true,
-                                        maxLines: 30,
-                                        minLines: 1,
-                                        autofocus: true,
+                                        controller: state,
                                         decoration: const InputDecoration(
                                           border: UnderlineInputBorder(),
-                                          labelText:
-                                              'Type your Professional Bio Here',
+                                          labelText: 'State you Practice',
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 16),
+                                      child: TextFormField(
+                                        controller: licenseNo,
+                                        decoration: const InputDecoration(
+                                          border: UnderlineInputBorder(),
+                                          labelText: 'License Number',
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 16),
+                                      child: TextFormField(
+                                        controller: licenseType,
+                                        decoration: const InputDecoration(
+                                          border: UnderlineInputBorder(),
+                                          labelText: 'License Type',
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 16),
+                                      child: TextFormField(
+                                        controller: dateofIssue,
+                                        decoration: const InputDecoration(
+                                          border: UnderlineInputBorder(),
+                                          labelText: 'Date of Issue',
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 16),
+                                      child: TextFormField(
+                                        controller: expirationDate,
+                                        decoration: const InputDecoration(
+                                          border: UnderlineInputBorder(),
+                                          labelText: 'Date of Expiration',
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 16),
+                                      child: TextFormField(
+                                        controller: city,
+                                        decoration: const InputDecoration(
+                                          border: UnderlineInputBorder(),
+                                          labelText: 'City or Zip Code',
                                         ),
                                       ),
                                     ),
                                     GestureDetector(
                                         onTap: nextStep,
-                                        child: button("Finish", Colors.white,
+                                        child: button("Next", Colors.white,
                                             Colors.black, context))
                                   ],
                                 ),
                               )
-                            : Center(
-                                child: Column(
-                                children: [
-                                  Text(
-                                      "Thank you for your Sumbmission. Your Account is under review"),
-                                  GestureDetector(
-                                    onTap: () {
-                                      Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                              builder: (context) =>
-                                                  HomePage(type: 0)));
-                                    },
-                                    child: button("Next", Colors.white,
-                                        Colors.white, context),
+                            : profileStatus == 4
+                                ? Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: ListView(
+                                      children: [
+                                        Text("Profesional Bio"),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 16),
+                                          child: TextFormField(
+                                            // expands: true,
+                                            controller: professionalBio,
+                                            maxLines: 30,
+                                            minLines: 1,
+                                            autofocus: true,
+                                            decoration: const InputDecoration(
+                                              border: UnderlineInputBorder(),
+                                              labelText:
+                                                  'Type your Professional Bio Here',
+                                            ),
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                            onTap: createTherapist,
+                                            child: button(
+                                                "Finish",
+                                                Colors.white,
+                                                Colors.black,
+                                                context))
+                                      ],
+                                    ),
                                   )
-                                ],
-                              )));
+                                : Center(
+                                    child: Column(
+                                    children: [
+                                      Text(
+                                          "Thank you for your Sumbmission. Your Account is under review"),
+                                      GestureDetector(
+                                        onTap: () {
+                                          Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      HomePage(type: 0)));
+                                        },
+                                        child: button("Next", Colors.white,
+                                            Colors.white, context),
+                                      )
+                                    ],
+                                  )));
   }
 }
 
@@ -1862,10 +2082,14 @@ class _MonthlySponsorshipsState extends State<MonthlySponsorships> {
                   fontSize: 20,
                   fontWeight: FontWeight.bold)),
         ),
-        leading: GestureDetector(onTap: () {
-          Navigator.pop(context);
-        },
-        child: Icon(Icons.arrow_back,color: Colors.white,),
+        leading: GestureDetector(
+          onTap: () {
+            Navigator.pop(context);
+          },
+          child: Icon(
+            Icons.arrow_back,
+            color: Colors.white,
+          ),
         ),
       ),
       body: ListView(
@@ -1895,7 +2119,7 @@ class _OneTimeSponsorshipsState extends State<OneTimeSponsorships> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-       appBar: AppBar(
+      appBar: AppBar(
         backgroundColor: Colors.black,
         title: Center(
           child: Text("One Time Sponsorships",
@@ -1904,10 +2128,14 @@ class _OneTimeSponsorshipsState extends State<OneTimeSponsorships> {
                   fontSize: 20,
                   fontWeight: FontWeight.bold)),
         ),
-        leading: GestureDetector(onTap: () {
-          Navigator.pop(context);
-        },
-        child: Icon(Icons.arrow_back,color: Colors.white,),
+        leading: GestureDetector(
+          onTap: () {
+            Navigator.pop(context);
+          },
+          child: Icon(
+            Icons.arrow_back,
+            color: Colors.white,
+          ),
         ),
       ),
       body: ListView(

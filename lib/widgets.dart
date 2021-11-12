@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 Widget button(text, txtColor, color, context) {
   return Container(
@@ -142,3 +144,36 @@ Widget therapistCard(context, name, hoursPracticed, patients) {
           )),
     );
   }
+  showToast(message){
+Fluttertoast.showToast(
+        msg: message,
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0
+    );
+  }
+loader(){
+  return Scaffold(
+    backgroundColor: Colors.black,
+    body: Center(
+      child: SpinKitSquareCircle(
+      color: Colors.white,
+      size: 50.0,
+),
+    ),
+  );
+}
+whiteloader(){
+  return Scaffold(
+    backgroundColor: Colors.white,
+    body: Center(
+      child: SpinKitSquareCircle(
+      color: Colors.black,
+      size: 50.0,
+),
+    ),
+  );
+}
