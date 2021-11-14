@@ -3918,6 +3918,22 @@ class _ViewNotesState extends State<ViewNotes> {
   Widget build(BuildContext context) {
     return Scaffold(
         backgroundColor: Colors.black,
+        appBar:AppBar(
+              centerTitle: true,
+              backgroundColor: Colors.black,
+              leading: GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                  },
+                  child: Icon(
+                    Icons.arrow_back,
+                    color: Colors.white,
+                  )),
+              title: Text('Notes',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 25,
+                      fontWeight: FontWeight.normal)),),
         body: ListView(
           children: [
             Padding(

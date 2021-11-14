@@ -1,16 +1,24 @@
 # umoja
 
-A new Flutter project.
+My submission for the bostonhacks2021 hackathon.
 
-## Getting Started
+## what id does
 
-This project is a starting point for a Flutter application.
+Umoja is an app that provides free talk therapy to people who cannot afford it especially during this post COVID world where mental health issues have been on the rise and people have lost their jobs.
 
-A few resources to get you started if this is your first Flutter project:
+It does this through crowd funding.
+Hence the money umoja which in swahili means unity.
 
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
+## How it works
 
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Sponsors can choose to pay monthly or per bank transaction
+
+Monthly~ Specified Points are translated to points then taken from their accounts every month.
+
+Per Transaction~ Every time a bank transaction is made, the amount is rounded off to the nearest dollar and the difference is divided by two and used to buy points that you can use later to sponsor therapists.
+
+The points and the money exchange rate would change based on the ratio of the number of patients using the app to the number of therapists.
+
+## Team
+
+The team is made up of myself Leon Kipkoech.
