@@ -40,8 +40,8 @@ appBar(text, context, type) {
   );
 }
 
-Widget therapistDashboard(context,name, patients, monthlysponsors, onetimesponsors,
-    pointsEarned, hoursPracticed) {
+Widget therapistDashboard(context, name, patients, monthlysponsors,
+    onetimesponsors, pointsEarned, hoursPracticed) {
   logOut() {
     FirebaseAuth.instance.signOut();
   }
@@ -150,6 +150,47 @@ Widget therapistCard(context, name, hoursPracticed, patients) {
         )),
   );
 }
+Widget therapistRequestCard(context, name, licenseNo, dateMade) {
+  return Center(
+    child: Container(
+        margin: EdgeInsets.only(top: 10, bottom: 10),
+        width: MediaQuery.of(context).size.width - 20,
+        decoration: BoxDecoration(
+            color: Colors.white30, borderRadius: BorderRadius.circular(10)),
+        padding: EdgeInsets.fromLTRB(20, 10, 20, 10),
+        child: Column(
+          
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Center(
+                child: Text(name, style: TextStyle(color: Colors.white, fontSize: 20))
+              ),
+            ),
+            
+            therapistRow('License ID', licenseNo),
+            therapistRow('Date of Request', dateMade)
+          ],
+        )),
+  );
+}
+Widget therapistSponsorCard(context, name,lastSponsor,nextSponsor,monthly) {
+  return Center(
+    child: Container(
+        margin: EdgeInsets.only(top: 10, bottom: 10),
+        width: MediaQuery.of(context).size.width - 20,
+        decoration: BoxDecoration(
+            color: Colors.white30, borderRadius: BorderRadius.circular(10)),
+        padding: EdgeInsets.fromLTRB(20, 10, 20, 10),
+        child: Column(
+          children: [
+            therapistRow('Name', name),
+            therapistRow('last Sponsorship', lastSponsor),
+            monthly? therapistRow('next Sponsorship', nextSponsor):SizedBox(),
+          ],
+        )),
+  );
+}
 
 Widget therapistSessionCard(context, name, licenseId, time) {
   return Center(
@@ -202,4 +243,15 @@ whiteloader() {
       ),
     ),
   );
+}
+
+double checkDouble(dynamic value) {
+  if (value is String) {
+    return double.parse(value);
+  }
+  if (value is int) {
+    return value.toDouble();
+  } else {
+    return value;
+  }
 }
