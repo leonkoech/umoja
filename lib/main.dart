@@ -998,7 +998,7 @@ class _TherapistHomePageState extends State<TherapistHomePage> {
       querySnapshot.docs.forEach((doc) {
         setState(() {
           patients = doc["patients"];
-          onetimesponsors = doc["oTsponsors"];
+          onetimesponsors = doc["oTSponsors"];
           monthlysponsors = doc['monthlySponsors'];
           points = checkDouble(doc["points"]);
           hours = doc["hours"];
@@ -1009,7 +1009,7 @@ class _TherapistHomePageState extends State<TherapistHomePage> {
 
   Future<Widget> onePatient() async {
     return await FirebaseFirestore.instance
-        .collection('sessions')
+        .collection('requests')
         .where('therapistId', isEqualTo: therapistId)
         .get()
         .then((value) {
@@ -1026,7 +1026,7 @@ class _TherapistHomePageState extends State<TherapistHomePage> {
                           status: value.docs[0]['status'],
                         )));
           },
-          child: patientCard(
+          child: patientSessionCard(
             context,
             value.docs[0]['patientName'],
             value.docs[0]['condition'],
@@ -1038,6 +1038,7 @@ class _TherapistHomePageState extends State<TherapistHomePage> {
   void initState() {
     super.initState();
     getFirstName();
+    getTerapistStats();
   }
 
   @override
@@ -1112,7 +1113,7 @@ class _TherapistHomePageState extends State<TherapistHomePage> {
                     .collection('sessions')
                     .where('therapistId', isEqualTo: therapistId)
                     .where('status', isEqualTo: true)
-                    .orderBy('scheduleDate', descending: true)
+                    .orderBy('scheduledDate', descending: true)
                     .snapshots(),
                 builder: (BuildContext context,
                     AsyncSnapshot<QuerySnapshot> snapshot) {
@@ -1154,7 +1155,7 @@ class _TherapistHomePageState extends State<TherapistHomePage> {
                             context,
                             data['patientName'],
                             data['condition'],
-                            (data['dateMade'] as Timestamp).toDate(),
+                            (data['scheduledDate'] as Timestamp).toDate(),
                           ));
                     }).toList(),
                   );
@@ -1326,8 +1327,8 @@ class _ViewPatientState extends State<ViewPatient> {
     FirebaseFirestore.instance
         .collection('therapistWallets')
         .where('therapistId', isEqualTo: therapistId)
-        .get()
-        .then((QuerySnapshot snap) {
+        .snapshots()
+        .listen((QuerySnapshot snap) {
       snap.docs.forEach((element) {
         setState(() {
           patientNumber = element['patients'];
@@ -1359,7 +1360,7 @@ class _ViewPatientState extends State<ViewPatient> {
       'scheduledTime': DateTime.now(),
       'scheduledDate': DateTime.now(),
       'therapistId': therapistId,
-      'status': false,
+      'status': true,
     }).then((value) {
       print(value.id);
       showToast('Session Started');
@@ -1577,7 +1578,7 @@ class _ViewPatientState extends State<ViewPatient> {
                         ),
                         GestureDetector(
                           onTap: () {
-                             showToast('feature not available yet');
+                            showToast('feature not available yet');
                           },
                           child: Container(
                               margin: EdgeInsets.only(bottom: 20),
@@ -1676,6 +1677,11 @@ class _ViewPatientState extends State<ViewPatient> {
                                 return GestureDetector(
                                   onTap: () {
                                     // open Notes
+                                    Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (context) => ViewNotes(
+                                                sessionId: data['sessionId'])));
                                   },
                                   child: patientNotesCard(
                                     context,
@@ -2544,8 +2550,8 @@ class _ViewTherapistState extends State<ViewTherapist> {
     });
   }
 
-  getTherapistStats()  {
-     FirebaseFirestore.instance
+  getTherapistStats() {
+    FirebaseFirestore.instance
         .collection('therapistWallets')
         .where('therapistId', isEqualTo: widget.therapistId)
         .snapshots()
@@ -3254,8 +3260,8 @@ class _SponsorHomeState extends State<SponsorHome> {
     sponsorNames();
   }
 
-  sponsorInfo()  {
-     FirebaseFirestore.instance
+  sponsorInfo() {
+    FirebaseFirestore.instance
         .collection('sponsorWallets')
         .where('sponsorId', isEqualTo: sponsorId)
         .snapshots()
@@ -3874,6 +3880,50 @@ class _ViewAllTherapistsState extends State<ViewAllTherapists> {
               }).toList(),
             );
           },
+        ));
+  }
+}
+
+class ViewNotes extends StatefulWidget {
+  final sessionId;
+  const ViewNotes({Key? key, @required this.sessionId}) : super(key: key);
+
+  @override
+  _ViewNotesState createState() => _ViewNotesState();
+}
+
+class _ViewNotesState extends State<ViewNotes> {
+  String text = '';
+  @override
+  void initState() {
+    super.initState();
+    fetchNotes();
+  }
+
+  fetchNotes() {
+    FirebaseFirestore.instance
+        .collection('notes')
+        .where('sessionId', isEqualTo: widget.sessionId)
+        .get()
+        .then((val) {
+      val.docs.forEach((element) {
+        setState(() {
+          text = element['notes'];
+        });
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+        backgroundColor: Colors.black,
+        body: ListView(
+          children: [
+            Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(text, style: TextStyle(color:Colors.white,fontSize: 20)))
+          ],
         ));
   }
 }
