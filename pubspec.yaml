@@ -45,6 +45,7 @@ dependencies:
   fluttertoast: ^8.0.8
   firebase_storage: ^10.1.0
   path_provider: ^2.0.6
+  intl: ^0.17.0
 
 dev_dependencies:
   flutter_test:

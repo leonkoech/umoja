@@ -1,7 +1,7 @@
 import 'dart:ffi';
 import 'dart:io' as r;
 import 'dart:io';
-
+import 'package:intl/intl.dart';
 import 'package:flutter_datetime_picker/flutter_datetime_picker.dart';
 
 import 'package:flutter/material.dart';
@@ -135,10 +135,6 @@ class _LoginState extends State<Login> {
   void initState() {
     super.initState();
     FirebaseAuth.instance.signOut();
-    setState(() {
-      print("check...........................rtrt");
-      userId = FirebaseAuth.instance.currentUser!.uid;
-    });
   }
 
   logIn() {
@@ -148,6 +144,9 @@ class _LoginState extends State<Login> {
     auth
         .signInWithEmailAndPassword(email: email.text, password: password.text)
         .then((value) {
+      setState(() {
+        userId = FirebaseAuth.instance.currentUser!.uid;
+      });
       // log in user
       print("check...........................wewe");
       checkAcctType();
@@ -236,7 +235,7 @@ class _LoginState extends State<Login> {
               backgroundColor: Colors.black,
               elevation: 0,
               centerTitle: true,
-              title: Text("Log",
+              title: Text("Login",
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 25,
@@ -419,8 +418,7 @@ class _TherapistSignUpState extends State<TherapistSignUp> {
       profileStatus = 1;
     } else if (widget.pageNumber == 1) {
       profileStatus = 5;
-    }
-    else if (widget.pageNumber == 2) {
+    } else if (widget.pageNumber == 2) {
       profileStatus = 6;
     }
   }
@@ -946,7 +944,6 @@ class _TherapistSignUpState extends State<TherapistSignUp> {
                                         children: [
                                           Text(
                                               "Thank you for your Sumbmission. Your Account is under review"),
-                                        
                                         ],
                                       ))
                                     : Center(
@@ -961,7 +958,6 @@ class _TherapistSignUpState extends State<TherapistSignUp> {
                                       )));
   }
 }
-
 
 class TherapistHomePage extends StatefulWidget {
   const TherapistHomePage({Key? key}) : super(key: key);
@@ -997,8 +993,8 @@ class _TherapistHomePageState extends State<TherapistHomePage> {
     FirebaseFirestore.instance
         .collection('therapistWallets')
         .where('therapistId', isEqualTo: therapistId)
-        .get()
-        .then((QuerySnapshot querySnapshot) {
+        .snapshots()
+        .listen((QuerySnapshot querySnapshot) {
       querySnapshot.docs.forEach((doc) {
         setState(() {
           patients = doc["patients"];
@@ -1008,6 +1004,34 @@ class _TherapistHomePageState extends State<TherapistHomePage> {
           hours = doc["hours"];
         });
       });
+    });
+  }
+
+  Future<Widget> onePatient() async {
+    return await FirebaseFirestore.instance
+        .collection('sessions')
+        .where('therapistId', isEqualTo: therapistId)
+        .get()
+        .then((value) {
+      return GestureDetector(
+          onTap: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => ViewPatient(
+                          userId: value.docs[0]['therapistId'],
+                          docId: value.docs[0].id,
+                          name: value.docs[0]['patientName'],
+                          condition: value.docs[0]['condition'],
+                          status: value.docs[0]['status'],
+                        )));
+          },
+          child: patientCard(
+            context,
+            value.docs[0]['patientName'],
+            value.docs[0]['condition'],
+            (value.docs[0]['dateMade'] as Timestamp).toDate(),
+          ));
     });
   }
 
@@ -1063,43 +1087,78 @@ class _TherapistHomePageState extends State<TherapistHomePage> {
                                 color: Colors.white,
                                 fontSize: 21,
                                 fontWeight: FontWeight.bold)),
-                        GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (context) => ViewPatient()));
-                            },
-                            child: patientCard(
-                                context, 'Leon', "ADHD", 'Today at 2:15pm')),
+                        FutureBuilder<Widget>(
+                          future: onePatient(), // async work
+                          builder: (BuildContext context,
+                              AsyncSnapshot<Widget> snapshot) {
+                            switch (snapshot.connectionState) {
+                              case ConnectionState.waiting:
+                                return Text('Loading....');
+                              default:
+                                if (snapshot.hasError)
+                                  return Text('Error: ${snapshot.error}');
+                                else
+                                  return snapshot.data as Widget;
+                            }
+                          },
+                        )
                       ],
                     ),
                   ),
                 ],
               ),
-              ListView(
-                children: [
-                  Container(
-                    margin: EdgeInsets.only(top: 15, bottom: 15),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text("Sessions",
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 25,
-                                fontWeight: FontWeight.bold)),
-                        patientCard(context, 'Leon', "ADHD", 'Today at 2:15pm'),
-                        patientCard(context, 'Leon', "ADHD", 'Today at 2:15pm'),
-                        patientCard(context, 'Leon', "ADHD", 'Today at 2:15pm'),
-                        patientCard(context, 'Leon', "ADHD", 'Today at 2:15pm'),
-                        patientCard(context, 'Leon', "ADHD", 'Today at 2:15pm'),
-                        patientCard(context, 'Leon', "ADHD", 'Today at 2:15pm'),
-                        patientCard(context, 'Leon', "ADHD", 'Today at 2:15pm')
-                      ],
-                    ),
-                  ),
-                ],
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('sessions')
+                    .where('therapistId', isEqualTo: therapistId)
+                    .where('status', isEqualTo: true)
+                    .orderBy('scheduleDate', descending: true)
+                    .snapshots(),
+                builder: (BuildContext context,
+                    AsyncSnapshot<QuerySnapshot> snapshot) {
+                  if (snapshot.hasError) {
+                    return Text('Something went wrong');
+                  }
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Text("Loading");
+                  }
+                  if (!snapshot.hasData) {
+                    return Center(
+                      child: Text(
+                        "No requests have been made yet",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    );
+                  }
+
+                  return ListView(
+                    children:
+                        snapshot.data!.docs.map((DocumentSnapshot document) {
+                      Map<String, dynamic> data =
+                          document.data()! as Map<String, dynamic>;
+                      return GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => ViewPatient(
+                                          userId: data['therapistId'],
+                                          docId: document.id,
+                                          name: data['patientName'],
+                                          condition: data['condition'],
+                                          status: data['status'],
+                                        )));
+                          },
+                          child: patientCard(
+                            context,
+                            data['patientName'],
+                            data['condition'],
+                            (data['dateMade'] as Timestamp).toDate(),
+                          ));
+                    }).toList(),
+                  );
+                },
               ),
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
@@ -1138,8 +1197,10 @@ class _TherapistHomePageState extends State<TherapistHomePage> {
                                 MaterialPageRoute(
                                     builder: (context) => ViewPatient(
                                           userId: data['therapistId'],
+                                          docId: document.id,
                                           name: data['patientName'],
                                           condition: data['condition'],
+                                          status: data['status'],
                                         )));
                           },
                           child: patientCard(
@@ -1189,8 +1250,10 @@ class _TherapistHomePageState extends State<TherapistHomePage> {
                                 MaterialPageRoute(
                                     builder: (context) => ViewPatient(
                                           userId: data['therapistId'],
+                                          docId: document.id,
                                           name: data['patientName'],
                                           condition: data['condition'],
+                                          status: data['status'],
                                         )));
                           },
                           child: patientCard(
@@ -1210,9 +1273,15 @@ class _TherapistHomePageState extends State<TherapistHomePage> {
 }
 
 class ViewPatient extends StatefulWidget {
-  final userId, name, condition;
+  final userId, docId, name, condition, status;
 
-  const ViewPatient({Key? key, this.userId, this.name, this.condition})
+  const ViewPatient(
+      {Key? key,
+      this.userId,
+      this.name,
+      this.docId,
+      this.condition,
+      this.status})
       : super(key: key);
 
   @override
@@ -1221,8 +1290,90 @@ class ViewPatient extends StatefulWidget {
 
 class _ViewPatientState extends State<ViewPatient> {
   // ignore: non_constant_identifier_names
-  DateTime initial = new DateTime(2021, 11, 13);
-  DateTime endDate = new DateTime(2022, 12, 12);
+  DateTime initial = new DateTime.now();
+  DateTime endDate = new DateTime(2023, 12, 12);
+  bool status = false;
+  String therapistName = '', therapistId = '', walletId = '', sessionId = '';
+  num patientNumber = 0;
+  DateTime finalDate = DateTime.now(), finalTime = DateTime.now();
+  @override
+  void initState() {
+    super.initState();
+
+    setState(() {
+      therapistId = FirebaseAuth.instance.currentUser!.uid;
+      status = widget.status;
+    });
+    fetchName();
+    fetchPatientNumber();
+  }
+
+  fetchName() {
+    FirebaseFirestore.instance
+        .collection('therapists')
+        .where('therapistId', isEqualTo: therapistId)
+        .get()
+        .then((QuerySnapshot snap) {
+      snap.docs.forEach((element) {
+        setState(() {
+          therapistName = element['name'];
+        });
+      });
+    });
+  }
+
+  fetchPatientNumber() {
+    FirebaseFirestore.instance
+        .collection('therapistWallets')
+        .where('therapistId', isEqualTo: therapistId)
+        .get()
+        .then((QuerySnapshot snap) {
+      snap.docs.forEach((element) {
+        setState(() {
+          patientNumber = element['patients'];
+          walletId = element.id;
+        });
+      });
+    });
+  }
+
+  createSession(time, date) {
+    FirebaseFirestore.instance.collection('sessions').add({
+      'patientName': widget.name,
+      'patientId': widget.userId,
+      'therapistName': therapistName,
+      'scheduledTime': time,
+      'scheduledDate': date,
+      'therapistId': therapistId,
+      'status': false,
+    }).then((value) {
+      showToast('Session Successfully created');
+    });
+  }
+
+  beginNewSession() {
+    FirebaseFirestore.instance.collection('sessions').add({
+      'patientName': widget.name,
+      'patientId': widget.userId,
+      'therapistName': therapistName,
+      'scheduledTime': DateTime.now(),
+      'scheduledDate': DateTime.now(),
+      'therapistId': therapistId,
+      'status': false,
+    }).then((value) {
+      print(value.id);
+      showToast('Session Started');
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => TakeNotes(
+                  patientId: widget.userId,
+                  docId: value.id,
+                  patientName: widget.name,
+                  startTime: DateTime.now())));
+    });
+  }
+
   showDatePicker() {
     DatePicker.showDatePicker(context,
         theme: DatePickerTheme(
@@ -1237,7 +1388,10 @@ class _ViewPatientState extends State<ViewPatient> {
         maxTime: DateTime(2023, 10, 12), onChanged: (date) {
       print('change $date');
     }, onConfirm: (date) {
-      print('confirm $date');
+      setState(() {
+        finalDate = date;
+      });
+      showAlertDialog();
     }, currentTime: DateTime.now(), locale: LocaleType.en);
   }
 
@@ -1252,82 +1406,116 @@ class _ViewPatientState extends State<ViewPatient> {
             itemStyle: TextStyle(
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
             doneStyle: TextStyle(color: Colors.white, fontSize: 16)),
-        onChanged: (time) {},
-        onConfirm: (time) {},
-        currentTime: DateTime.now(),
-        locale: LocaleType.en);
+        onChanged: (time) {}, onConfirm: (time) {
+      setState(() {
+        finalTime = time;
+      });
+      showAlertDialog();
+    }, currentTime: DateTime.now(), locale: LocaleType.en);
   }
 
-  showAlertDialog(BuildContext context) {
+  showAlertDialog() {
     // set up the AlertDialog
-    AlertDialog alert = AlertDialog(
-      backgroundColor: Colors.white,
-      title: Center(
-        child: Text("Schedule Session",
-            style: TextStyle(
-                color: Colors.black,
-                fontSize: 25,
-                fontWeight: FontWeight.normal)),
-      ),
-      content: Container(
-        height: MediaQuery.of(context).size.height * 0.2,
-        child: Column(
-          children: [
-            GestureDetector(
-                onTap: () {
-                  showDatePicker();
-                },
-                child:
-                    button('Select Date', Colors.white, Colors.black, context)),
-            SizedBox(
-              height: 20,
-            ),
-            GestureDetector(
-                onTap: () {
-                  showTimePicker();
-                },
-                child:
-                    button('Select Time', Colors.white, Colors.black, context)),
-          ],
-        ),
-      ),
-      actions: [
-        GestureDetector(
-          onTap: () {
-            Navigator.pop(context);
-          },
-          child: Container(
-              padding: EdgeInsets.only(top: 15, bottom: 15),
-              width: MediaQuery.of(context).size.width * 0.3,
-              child: Center(
-                  child: Text(
-                'Cancel',
-                style: TextStyle(color: Colors.red),
-              ))),
-        ),
-        GestureDetector(
-          onTap: () {},
-          child: Container(
-              padding: EdgeInsets.only(top: 15, bottom: 15),
-              width: MediaQuery.of(context).size.width * 0.3,
-              color: Colors.blue,
-              child: Center(
-                  child: Text(
-                'Done',
-                style: TextStyle(color: Colors.white),
-              ))),
-        )
-      ],
-      actionsAlignment: MainAxisAlignment.spaceBetween,
-    );
 
     // show the dialog
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return alert;
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          title: Center(
+            child: Text("Schedule Session",
+                style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 20,
+                    fontWeight: FontWeight.normal)),
+          ),
+          content: Container(
+            height: MediaQuery.of(context).size.height * 0.16,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    Text("Date& time selected"),
+                    Text(formatDateTime(DateTime.now()))
+                  ],
+                ),
+                GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      showDatePicker();
+                    },
+                    child: button(
+                        'Select Date', Colors.white, Colors.black, context)),
+                SizedBox(
+                  height: 10,
+                ),
+                GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      showTimePicker();
+                    },
+                    child: button(
+                        'Select Time', Colors.white, Colors.black, context)),
+              ],
+            ),
+          ),
+          actions: [
+            GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+              },
+              child: Container(
+                  padding: EdgeInsets.only(top: 15, bottom: 15),
+                  width: MediaQuery.of(context).size.width * 0.3,
+                  child: Center(
+                      child: Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.red),
+                  ))),
+            ),
+            GestureDetector(
+              onTap: () {
+                createSession(finalTime, finalDate);
+              },
+              child: Container(
+                  padding: EdgeInsets.only(top: 15, bottom: 15),
+                  width: MediaQuery.of(context).size.width * 0.3,
+                  color: Colors.blue,
+                  child: Center(
+                      child: Text(
+                    'Done',
+                    style: TextStyle(color: Colors.white),
+                  ))),
+            )
+          ],
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+        );
       },
     );
+  }
+
+  acceptRequest() {
+    FirebaseFirestore.instance.collection('requests').doc(widget.docId).update({
+      'status': true,
+    }).then((value) {
+      // fetch number of patients
+      // add one
+      addPatients();
+      setState(() {
+        status = true;
+      });
+    });
+  }
+
+  addPatients() {
+    FirebaseFirestore.instance
+        .collection('therapistWallets')
+        .doc(walletId)
+        .update({'patients': patientNumber + 1});
   }
 
   @override
@@ -1366,7 +1554,7 @@ class _ViewPatientState extends State<ViewPatient> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text("Leon Kipkoech",
+                    Text(widget.name,
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 30,
@@ -1378,10 +1566,7 @@ class _ViewPatientState extends State<ViewPatient> {
                       children: [
                         GestureDetector(
                           onTap: () {
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => TakeNotes()));
+                            showToast('feature not available yet');
                           },
                           child: Container(
                               margin: EdgeInsets.only(bottom: 20),
@@ -1392,10 +1577,7 @@ class _ViewPatientState extends State<ViewPatient> {
                         ),
                         GestureDetector(
                           onTap: () {
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => TakeNotes()));
+                             showToast('feature not available yet');
                           },
                           child: Container(
                               margin: EdgeInsets.only(bottom: 20),
@@ -1404,24 +1586,31 @@ class _ViewPatientState extends State<ViewPatient> {
                                 color: Colors.white,
                               )),
                         ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => TakeNotes()));
-                          },
-                          child: Container(
-                              margin: EdgeInsets.only(bottom: 20),
-                              child: button("Begin New Session", Colors.black,
-                                  Colors.white, context)),
-                        ),
+                        status
+                            ? GestureDetector(
+                                onTap: () {
+                                  beginNewSession();
+                                },
+                                child: Container(
+                                    margin: EdgeInsets.only(bottom: 20),
+                                    child: button("Begin New Session",
+                                        Colors.black, Colors.white, context)),
+                              )
+                            : GestureDetector(
+                                onTap: () {
+                                  acceptRequest();
+                                },
+                                child: Container(
+                                    margin: EdgeInsets.only(bottom: 20),
+                                    child: button("Accept Request",
+                                        Colors.black, Colors.white, context)),
+                              ),
                       ],
                     ),
 
                     // patientCard(context, 'Leon', "ADHD", 'Today at 2:15pm')
 
-                    therapistRow('Condition', 'Leon Kipkoech'),
+                    therapistRow('Condition', widget.condition),
                     therapistRow('Number of Appointments', '10'),
                     // Text("M.A.R",
                     //     style: TextStyle(
@@ -1430,25 +1619,6 @@ class _ViewPatientState extends State<ViewPatient> {
                     //         fontWeight: FontWeight.bold)),
                     // therapistRow('1', 'Gabapentin'),
                     // therapistRow('2', 'Trazodone'),
-                    Text("Summary",
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 30,
-                            fontWeight: FontWeight.bold)),
-                    SizedBox(
-                      height: 10,
-                    ),
-                    Text(
-                      "dkjsdfkasfsd fasdfbasdfhasd fsadfasdfasbdf asdfasdfasdfas dfasdf asdf sf sdf sd fsdfsdf sdf sdf sdf sfsd fsd",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        //  decoration: TextDecoration.underline,
-                        // decorationStyle: TextDecorationStyle.wavy,
-                        // decorationColor: Colors.white,
-                        // decorationThickness: 0.5,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -1465,18 +1635,60 @@ class _ViewPatientState extends State<ViewPatient> {
                       Text("Patient Notes",
                           style: TextStyle(
                               color: Colors.white,
-                              fontSize: 30,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold)),
-                      patientCard(context, 'Leon Kipoech', 'ADHD',
-                          'Yesterday at 2:15pm'),
-                      patientCard(context, 'Leon Kipoech', 'ADHD',
-                          'Yesterday at 2:15pm'),
-                      patientCard(context, 'Leon Kipoech', 'ADHD',
-                          'Yesterday at 2:15pm'),
-                      patientCard(context, 'Leon Kipoech', 'ADHD',
-                          'Yesterday at 2:15pm'),
-                      patientCard(context, 'Leon Kipoech', 'ADHD',
-                          'Yesterday at 2:15pm')
+                      // GestureDetector(
+                      //   onTap: () {
+                      //     showAlertDialog(context);
+                      //   },
+                      //   child: Container(
+                      //       margin: EdgeInsets.only(top: 20, bottom: 20),
+                      //       child: button("Schedule Session", Colors.black,
+                      //           Colors.white, context)),
+                      // ),
+                      Container(
+                        height: MediaQuery.of(context).size.height,
+                        width: MediaQuery.of(context).size.width,
+                        // color: Colors.red,
+                        child: StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('notes')
+                              .where('patientId', isEqualTo: widget.userId)
+                              .where('therapistId', isEqualTo: therapistId)
+                              .orderBy('stopTime', descending: true)
+                              .snapshots(),
+                          builder: (BuildContext context,
+                              AsyncSnapshot<QuerySnapshot> snapshot) {
+                            if (snapshot.hasError) {
+                              return Text('Something went wrong');
+                            }
+
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return Text("Loading");
+                            }
+
+                            return ListView(
+                              children: snapshot.data!.docs
+                                  .map((DocumentSnapshot document) {
+                                Map<String, dynamic> data =
+                                    document.data()! as Map<String, dynamic>;
+                                return GestureDetector(
+                                  onTap: () {
+                                    // open Notes
+                                  },
+                                  child: patientNotesCard(
+                                    context,
+                                    data['patientName'],
+                                    (data['startTime'] as Timestamp).toDate(),
+                                    (data['stopTime'] as Timestamp).toDate(),
+                                  ),
+                                );
+                              }).toList(),
+                            );
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1498,23 +1710,59 @@ class _ViewPatientState extends State<ViewPatient> {
                               fontWeight: FontWeight.bold)),
                       GestureDetector(
                         onTap: () {
-                          showAlertDialog(context);
+                          showAlertDialog();
                         },
                         child: Container(
                             margin: EdgeInsets.only(top: 20, bottom: 20),
                             child: button("Schedule Session", Colors.black,
                                 Colors.white, context)),
                       ),
-                      patientCard(context, 'Leon Kipoech', 'ADHD',
-                          'Yesterday at 2:15pm'),
-                      patientCard(context, 'Leon Kipoech', 'ADHD',
-                          'Yesterday at 2:15pm'),
-                      patientCard(context, 'Leon Kipoech', 'ADHD',
-                          'Yesterday at 2:15pm'),
-                      patientCard(context, 'Leon Kipoech', 'ADHD',
-                          'Yesterday at 2:15pm'),
-                      patientCard(context, 'Leon Kipoech', 'ADHD',
-                          'Yesterday at 2:15pm')
+                      Container(
+                        height: MediaQuery.of(context).size.height,
+                        width: MediaQuery.of(context).size.width,
+                        // color: Colors.red,
+                        child: StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('sessions')
+                              .where('patientId', isEqualTo: widget.userId)
+                              .where('therapistId', isEqualTo: therapistId)
+                              .where('status', isEqualTo: false)
+                              .orderBy('scheduledDate', descending: true)
+                              .snapshots(),
+                          builder: (BuildContext context,
+                              AsyncSnapshot<QuerySnapshot> snapshot) {
+                            if (snapshot.hasError) {
+                              return Text('Something went wrong');
+                            }
+
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return Text("Loading");
+                            }
+
+                            return ListView(
+                              children: snapshot.data!.docs
+                                  .map((DocumentSnapshot document) {
+                                Map<String, dynamic> data =
+                                    document.data()! as Map<String, dynamic>;
+                                return GestureDetector(
+                                  onTap: () {
+                                    // can't click session
+                                  },
+                                  child: patientSessionCard(
+                                    context,
+                                    data['patientName'],
+                                    (data['scheduledDate'] as Timestamp)
+                                        .toDate(),
+                                    (data['scheduledTime'] as Timestamp)
+                                        .toDate(),
+                                  ),
+                                );
+                              }).toList(),
+                            );
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1528,13 +1776,102 @@ class _ViewPatientState extends State<ViewPatient> {
 }
 
 class TakeNotes extends StatefulWidget {
-  const TakeNotes({Key? key}) : super(key: key);
+  final patientId, docId, startTime, patientName;
+  const TakeNotes(
+      {Key? key,
+      @required this.patientId,
+      @required this.docId,
+      @required this.startTime,
+      @required this.patientName})
+      : super(key: key);
 
   @override
   _TakeNotesState createState() => _TakeNotesState();
 }
 
 class _TakeNotesState extends State<TakeNotes> {
+  String therapistId = '', walletId = '';
+  TextEditingController notes = new TextEditingController();
+  num hours = 0;
+  @override
+  void initState() {
+    super.initState();
+    setState(() {
+      therapistId = FirebaseAuth.instance.currentUser!.uid;
+    });
+    fetchWalletId();
+    fetchHours();
+  }
+
+  finishSession() {
+    print('1111111111111111111111111111');
+    print(widget.docId);
+    FirebaseFirestore.instance
+        .collection('sessions')
+        .doc(widget.docId)
+        .update({"stopTime": DateTime.now()}).then((value) {
+      print('22222222222222222222222222222222');
+      // add hours of practice to therapist
+      recordNotes();
+    });
+  }
+
+  recordNotes() {
+    FirebaseFirestore.instance.collection('notes').add({
+      'therapistId': therapistId,
+      'patientId': widget.patientId,
+      'patientName': widget.patientName,
+      'notes': notes.text,
+      'startTime': widget.startTime,
+      'stopTime': DateTime.now(),
+      'sessionId': widget.docId,
+    }).then((value) {
+      addHours();
+    });
+  }
+
+  fetchHours() {
+    FirebaseFirestore.instance
+        .collection('therapistWallets')
+        .where("therapistId", isEqualTo: therapistId)
+        .get()
+        .then((value) {
+      value.docs.forEach((element) {
+        setState(() {
+          hours = element['hours'];
+        });
+      });
+    });
+  }
+
+  addHours() {
+    DateTime start = widget.startTime;
+    Duration time = DateTime.now().difference(start);
+    FirebaseFirestore.instance
+        .collection('therapistWallets')
+        .doc(walletId)
+        .update({
+      'hours': hours + time.inHours,
+    }).then((value) {
+      showToast("Session Succcessfully Recorded");
+      Navigator.pop(context);
+    });
+  }
+
+  fetchWalletId() {
+    FirebaseFirestore.instance
+        .collection('therapistWallets')
+        .where('therapistId', isEqualTo: therapistId)
+        .get()
+        .then((QuerySnapshot snap) {
+      snap.docs.forEach((element) {
+        setState(() {
+          walletId = element.id;
+        });
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1542,6 +1879,21 @@ class _TakeNotesState extends State<TakeNotes> {
       appBar: AppBar(
           backgroundColor: Colors.black,
           centerTitle: true,
+          actions: [
+            GestureDetector(
+              onTap: () {
+                finishSession();
+              },
+              child: Container(
+                height: 25,
+                color: Colors.white,
+                padding: EdgeInsets.only(left: 20, right: 20),
+                child: Center(
+                    child: Text('finish session',
+                        style: TextStyle(color: Colors.black))),
+              ),
+            )
+          ],
           title: Text("Notes")),
       body: ListView(
         children: [
@@ -1551,6 +1903,7 @@ class _TakeNotesState extends State<TakeNotes> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
             child: TextFormField(
+              controller: notes,
               minLines: 200,
               maxLines: 1100,
               autofocus: true,
@@ -1816,7 +2169,6 @@ class _PatientSignUpState extends State<PatientSignUp> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 16),
                           child: TextFormField(
-                            
                             controller: state,
                             decoration: const InputDecoration(
                               border: UnderlineInputBorder(),
@@ -1931,40 +2283,88 @@ class _PatientHomeState extends State<PatientHome> {
             ListView(
               children: [
                 Container(
-                  margin: EdgeInsets.only(top: 15, bottom: 15),
+                  margin: EdgeInsets.only(top: 0, bottom: 15),
                   padding: EdgeInsets.all(20),
                   child: Center(
                     child: Column(
                       children: [
-                        Text("Upcoming Sessions",
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 30,
-                                fontWeight: FontWeight.bold)),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => ViewTherapist(
-                                        therapistId:
-                                            'HNh4WadMcLTF3dvuDa5eJOcYPLn1',
-                                        who: 1,
-                                        request: false)));
-                          },
-                          child: therapistSessionCard(
-                              context, 'Leon K.', "26670", 'Today at 12:15pm'),
+                        Row(
+                          mainAxisSize: MainAxisSize.max,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Upcoming Sessions",
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold)),
+                            GestureDetector(
+                                onTap: () {
+                                  FirebaseAuth.instance.signOut();
+                                  // Navigator.push
+                                  Navigator.pushAndRemoveUntil(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (context) => MyApp()),
+                                      (route) => false);
+                                },
+                                child: Icon(Icons.logout_outlined,
+                                    size: 30, color: Colors.white))
+                          ],
                         ),
-                        therapistSessionCard(
-                            context, 'Leon K.', "26670", 'Today at 12:15pm'),
-                        therapistSessionCard(
-                            context, 'Leon K.', "26670", 'Today at 12:15pm'),
-                        therapistSessionCard(
-                            context, 'Leon K.', "26670", 'Today at 12:15pm'),
-                        therapistSessionCard(
-                            context, 'Leon K.', "26670", 'Today at 12:15pm'),
-                        therapistSessionCard(
-                            context, 'Leon K.', "26670", 'Today at 12:15pm'),
+                        Container(
+                          height: MediaQuery.of(context).size.height,
+                          width: MediaQuery.of(context).size.width,
+                          child: StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('sessions')
+                                .where('patientId', isEqualTo: patientId)
+                                .where('status', isEqualTo: false)
+                                .orderBy('scheduledDate', descending: true)
+                                .snapshots(),
+                            builder: (BuildContext context,
+                                AsyncSnapshot<QuerySnapshot> snapshot) {
+                              if (snapshot.hasError) {
+                                return Text('Something went wrong');
+                              }
+
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return Text("Loading");
+                              }
+
+                              return ListView(
+                                children: snapshot.data!.docs
+                                    .map((DocumentSnapshot document) {
+                                  Map<String, dynamic> data =
+                                      document.data()! as Map<String, dynamic>;
+                                  return GestureDetector(
+                                    onTap: () {
+                                      // can't click session
+
+                                      Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                              builder: (context) =>
+                                                  ViewTherapist(
+                                                      therapistId:
+                                                          data['therapistId'],
+                                                      who: 1,
+                                                      request: false)));
+                                    },
+                                    child: patientSessionCard(
+                                      context,
+                                      data['patientName'],
+                                      (data['scheduledDate'] as Timestamp)
+                                          .toDate(),
+                                      (data['scheduledTime'] as Timestamp)
+                                          .toDate(),
+                                    ),
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -2088,7 +2488,10 @@ class _UnconfirmedState extends State<Unconfirmed> {
 class ViewTherapist extends StatefulWidget {
   final therapistId, who, request;
   const ViewTherapist(
-      {Key? key, @required this.therapistId, @required this.who, this.request})
+      {Key? key,
+      @required this.therapistId,
+      @required this.who,
+      @required this.request})
       : super(key: key);
 
   @override
@@ -2141,12 +2544,12 @@ class _ViewTherapistState extends State<ViewTherapist> {
     });
   }
 
-  getTherapistStats() async {
-    await FirebaseFirestore.instance
+  getTherapistStats()  {
+     FirebaseFirestore.instance
         .collection('therapistWallets')
         .where('therapistId', isEqualTo: widget.therapistId)
-        .get()
-        .then((QuerySnapshot querySnapshot) {
+        .snapshots()
+        .listen((QuerySnapshot querySnapshot) {
       querySnapshot.docs.forEach((doc) {
         setState(() {
           hours = doc["hours"];
@@ -2161,10 +2564,10 @@ class _ViewTherapistState extends State<ViewTherapist> {
 
   getSponsorPoints() {
     FirebaseFirestore.instance
-        .collection('therapistWallets')
-        .where('therapistId', isEqualTo: widget.therapistId)
-        .get()
-        .then((QuerySnapshot querySnapshot) {
+        .collection('sponsorWallets')
+        .where('sponsorId', isEqualTo: FirebaseAuth.instance.currentUser!.uid)
+        .snapshots()
+        .listen((QuerySnapshot querySnapshot) {
       querySnapshot.docs.forEach((doc) {
         setState(() {
           sponsorPoints = checkDouble(doc["points"]);
@@ -2173,7 +2576,7 @@ class _ViewTherapistState extends State<ViewTherapist> {
     });
   }
 
-  oneTimeSponsor(amount) {
+  oneTimeSponsor(amount, ctxt) {
     FirebaseFirestore.instance.collection('sponsorWallets').doc(userId).update({
       "points": sponsorPoints - amount,
     }).then((value) {
@@ -2194,13 +2597,14 @@ class _ViewTherapistState extends State<ViewTherapist> {
           'name': therapistName,
           'date': DateTime.now()
         }).then((value) {
+          Navigator.pop(ctxt);
           showToast("Sponsorship Successful");
         });
       });
     });
   }
 
-  monthlySponsor(amount) {
+  monthlySponsor(amount, ctxt) {
     var today = new DateTime.now();
     FirebaseFirestore.instance.collection('sponsorWallets').doc(userId).update({
       "points": sponsorPoints - amount,
@@ -2223,76 +2627,81 @@ class _ViewTherapistState extends State<ViewTherapist> {
           'name': therapistName,
           'nextDate': DateTime(today.year, today.month + 1, today.day),
         }).then((value) {
+          Navigator.pop(ctxt);
           showToast("Sponsorship Successful");
         });
       });
     });
   }
 
-  showAlertDialog(context, type) {
+  showAlertDialog(type) {
     // set up the AlertDialog
-    AlertDialog alert = AlertDialog(
-      backgroundColor: Colors.white,
-      title: Center(
-        child: Text("Sponsor Therapist",
-            style: TextStyle(
-                color: Colors.black,
-                fontSize: 25,
-                fontWeight: FontWeight.normal)),
-      ),
-      content: Container(
-        height: MediaQuery.of(context).size.height * 0.2,
-        child: TextFormField(
-          controller: amount,
-          decoration: const InputDecoration(
-            border: UnderlineInputBorder(),
-            labelText: 'Enter Amount',
-          ),
-        ),
-      ),
-      actions: [
-        GestureDetector(
-          onTap: () {
-            Navigator.pop(context);
-          },
-          child: Container(
-              padding: EdgeInsets.only(top: 15, bottom: 15),
-              width: MediaQuery.of(context).size.width * 0.3,
-              child: Center(
-                  child: Text(
-                'Cancel',
-                style: TextStyle(color: Colors.red),
-              ))),
-        ),
-        GestureDetector(
-          onTap: () {
-            if (checkDouble(amount.text) > sponsorPoints) {
-              showToast("You dont have enough Points");
-            } else {
-              type == 1
-                  ? oneTimeSponsor(double.parse(amount.text))
-                  : monthlySponsor(double.parse(amount.text));
-            }
-          },
-          child: Container(
-              padding: EdgeInsets.only(top: 15, bottom: 15),
-              width: MediaQuery.of(context).size.width * 0.3,
-              color: Colors.blue,
-              child: Center(
-                  child: Text(
-                'Sponsor',
-                style: TextStyle(color: Colors.white),
-              ))),
-        )
-      ],
-      actionsAlignment: MainAxisAlignment.spaceBetween,
-    );
 
     // show the dialog
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return alert;
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          title: Center(
+            child: Text("Sponsor Therapist",
+                style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 25,
+                    fontWeight: FontWeight.normal)),
+          ),
+          content: Container(
+            height: MediaQuery.of(context).size.height * 0.2,
+            child: TextFormField(
+              controller: amount,
+              decoration: const InputDecoration(
+                border: UnderlineInputBorder(),
+                labelText: 'Enter Amount',
+              ),
+            ),
+          ),
+          actions: [
+            GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+              },
+              child: Container(
+                  padding: EdgeInsets.only(top: 15, bottom: 15),
+                  width: MediaQuery.of(context).size.width * 0.3,
+                  child: Center(
+                      child: Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.red),
+                  ))),
+            ),
+            GestureDetector(
+              onTap: () {
+                print(amount.text);
+                print(sponsorPoints);
+
+                if (checkDouble(amount.text) > sponsorPoints) {
+                  showToast("You dont have enough Points");
+                  Navigator.pop(context);
+                } else {
+                  type == 1
+                      ? oneTimeSponsor(double.parse(amount.text), context)
+                      : monthlySponsor(double.parse(amount.text), context);
+                }
+              },
+              child: Container(
+                  padding: EdgeInsets.only(top: 15, bottom: 15),
+                  width: MediaQuery.of(context).size.width * 0.3,
+                  color: Colors.blue,
+                  child: Center(
+                      child: Text(
+                    'Sponsor',
+                    style: TextStyle(color: Colors.white),
+                  ))),
+            )
+          ],
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+        );
       },
     );
   }
@@ -2376,7 +2785,7 @@ class _ViewTherapistState extends State<ViewTherapist> {
                       Text("Professional Summary",
                           style: TextStyle(
                               color: Colors.white,
-                              fontSize: 30,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold)),
                       SizedBox(
                         height: 10,
@@ -2455,7 +2864,7 @@ class _ViewTherapistState extends State<ViewTherapist> {
                           children: [
                             GestureDetector(
                               onTap: () {
-                                showAlertDialog(context, 0);
+                                showAlertDialog(2);
                               },
                               child: Container(
                                   margin: EdgeInsets.only(bottom: 20),
@@ -2477,7 +2886,7 @@ class _ViewTherapistState extends State<ViewTherapist> {
                                 // Navigator.push(context,
                                 //     MaterialPageRoute(builder: (context) => TakeNotes()));
                                 // Session has been requested
-                                showAlertDialog(context, 1);
+                                showAlertDialog(1);
                               },
                               child: Container(
                                   margin: EdgeInsets.only(bottom: 20),
@@ -2845,12 +3254,12 @@ class _SponsorHomeState extends State<SponsorHome> {
     sponsorNames();
   }
 
-  sponsorInfo() async {
-    await FirebaseFirestore.instance
+  sponsorInfo()  {
+     FirebaseFirestore.instance
         .collection('sponsorWallets')
         .where('sponsorId', isEqualTo: sponsorId)
-        .get()
-        .then((QuerySnapshot querySnapshot) {
+        .snapshots()
+        .listen((QuerySnapshot querySnapshot) {
       querySnapshot.docs.forEach((doc) {
         setState(() {
           points = checkDouble(doc["points"]);
@@ -3215,7 +3624,9 @@ class _MonthlySponsorshipsState extends State<MonthlySponsorships> {
                         context,
                         MaterialPageRoute(
                             builder: (context) => ViewTherapist(
-                                therapistId: data['therapistId'], who: 2)));
+                                therapistId: data['therapistId'],
+                                who: 2,
+                                request: false)));
                   },
                   child: therapistSponsorCard(
                       context,
@@ -3305,7 +3716,9 @@ class _OneTimeSponsorshipsState extends State<OneTimeSponsorships> {
                         context,
                         MaterialPageRoute(
                             builder: (context) => ViewTherapist(
-                                therapistId: data['therapistId'], who: 2)));
+                                therapistId: data['therapistId'],
+                                who: 2,
+                                request: false)));
                   },
                   child: therapistSponsorCard(
                       context,
@@ -3451,7 +3864,9 @@ class _ViewAllTherapistsState extends State<ViewAllTherapists> {
                         context,
                         MaterialPageRoute(
                             builder: (context) => ViewTherapist(
-                                therapistId: data['therapistId'], who: 2)));
+                                therapistId: data['therapistId'],
+                                who: 2,
+                                request: false)));
                   },
                   child: therapistCard(
                       context, data['name'], data['hours'], data['patients']),

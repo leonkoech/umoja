@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'package:umoja/main.dart';
 
 Widget button(text, txtColor, color, context) {
@@ -132,7 +133,40 @@ Widget patientCard(context, name, condition, apptDate) {
         )),
   );
 }
-
+Widget patientSessionCard(context, name, scdTime, scdDate) {
+  return Center(
+    child: Container(
+        margin: EdgeInsets.only(top: 10, bottom: 10),
+        width: MediaQuery.of(context).size.width - 20,
+        decoration: BoxDecoration(
+            color: Colors.white30, borderRadius: BorderRadius.circular(10)),
+        padding: EdgeInsets.fromLTRB(20, 10, 20, 10),
+        child: Column(
+          children: [
+            therapistRow('Name', name),
+            therapistRow('scheduled Date', scdDate),
+            therapistRow('scheduled Time', scdTime)
+          ],
+        )),
+  );
+}
+Widget patientNotesCard(context, name, startTime, stopTime) {
+  return Center(
+    child: Container(
+        margin: EdgeInsets.only(top: 10, bottom: 10),
+        width: MediaQuery.of(context).size.width - 20,
+        decoration: BoxDecoration(
+            color: Colors.white30, borderRadius: BorderRadius.circular(10)),
+        padding: EdgeInsets.fromLTRB(20, 10, 20, 10),
+        child: Column(
+          children: [
+            therapistRow('Name', name),
+            therapistRow('Start Time', startTime),
+            therapistRow('Stop Time', stopTime)
+          ],
+        )),
+  );
+}
 Widget therapistCard(context, name, hoursPracticed, patients) {
   return Center(
     child: Container(
@@ -254,4 +288,9 @@ double checkDouble(dynamic value) {
   } else {
     return value;
   }
+}
+formatDateTime(x){
+  var f = new DateFormat('yyyy-MM-dd hh:mm');
+
+return f.format(x);
 }
