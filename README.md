@@ -1,8 +1,10 @@
 # umoja
 
 My submission for the bostonhacks2021 hackathon.
+Got an honerable mention for the General Hack projects.
+https://devpost.com/software/umoja
 
-## what id does
+## what if does
 
 Umoja is an app that provides free talk therapy to people who cannot afford it especially during this post COVID world where mental health issues have been on the rise and people have lost their jobs.
 
